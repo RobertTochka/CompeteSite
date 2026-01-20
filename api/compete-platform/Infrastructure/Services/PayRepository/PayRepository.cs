@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using compete_platform.Dto;
+using compete_poco.Models;
 using Compete_POCO_Models.Infrastrcuture.Data;
 using Compete_POCO_Models.Models;
 using Microsoft.EntityFrameworkCore;
@@ -19,10 +20,26 @@ namespace compete_platform.Infrastructure.Services.PayRepository
             _mapper = mapper;
         }
 
+
         public async override Task<Pay> CreatePayAsync(Pay pay)
         {
             await _ctx.Pays.AddAsync(pay);
             return pay;
+        }
+
+        public async override Task CreatePayoutAsync(UserPayout payout)
+        {
+            await _ctx.UserPayouts.AddAsync(payout);
+        }
+
+        public async override Task<List<UserPayout>> GetUserPayoutsAsync(long userId)
+        {
+            var payouts = await _ctx.UserPayouts
+                .Where(p => p.UserId == userId)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+
+            return payouts;
         }
 
         public async override Task<GetPayDto[]> GetUserPaysGroupByDateAsync(long userId, 

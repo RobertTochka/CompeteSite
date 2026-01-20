@@ -18,6 +18,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using System.Transactions;
 using CompeteGameServerHandler.Infrastructure.PropertyResolvers;
+using compete_platform.Infrastructure.Services.PaymentService;
+using Yandex.Checkout.V3;
+using compete_platform.Infrastructure.Services.PayRepository;
 
 namespace compete_poco.Infrastructure.Services.LobbyService;
 
@@ -35,6 +38,8 @@ public class LobbyService : ILobbyService
     private readonly ILogger<LobbyService> _logger;
     private readonly MatchPrepareNotifier _matchPrepareNotifier;
     private readonly IHubContext<EventHub> _hubCtx;
+    private readonly IPaymentService _paymentSrc;
+    private readonly CPayRepository _paySrc;
     private static readonly int availableSecondsToMapSinglePick = 17;
     private static readonly int _minimalAmountOfVeto = 7;
     private static readonly int availableSecondsToConnect = (int)AppConfig.MapInitialWarmupTimeGlobally.TotalSeconds;
@@ -50,7 +55,9 @@ public class LobbyService : ILobbyService
         IServerService serverService,
         CServerRepository serverRep,
         ILogger<LobbyService> logger,
-        IHubContext<EventHub> hubCtx)
+        IHubContext<EventHub> hubCtx,
+        IPaymentService paymentSrc,
+        CPayRepository paySrc)
     {
         _lobbySrc = lobbySrc;
         _mapper = mapper;
@@ -63,6 +70,8 @@ public class LobbyService : ILobbyService
         _logger = logger;
         _matchPrepareNotifier = matchPrepareNotifier;
         _hubCtx = hubCtx;
+        _paymentSrc = paymentSrc;
+        _paySrc = paySrc;
     }
     private async Task LinkUserInLobbyToSteam(GetLobbyDto lobby)
     {
@@ -494,6 +503,117 @@ public class LobbyService : ILobbyService
         .Select(U => U.Id)
         .ToList();
 
+    private async Task StartLobbyAsync(Lobby needLobby, List<long> userIds)
+    {
+        var vetoNotifierStopping = _vetoNotifier.StopNotifyingAboutTime(needLobby.Id);
+        needLobby.Status = LobbyStatus.Warmup;
+        needLobby.EdgeConnectTimeOnFirstMap = DateTime.UtcNow + needLobby.WaitToStartTime;
+        needLobby.LastServerUpdate = DateTime.UtcNow;
+        InitializeMapMatchesInLobby(needLobby);
+        await _lobbySrc.SaveChangesAsync();
+        var startMapName = GameServerResolvers.ConvertMapToString(needLobby.Matches.First().PlayedMap);
+        var startMap = _serverRep.ConvertMapsToWorkshopLinks(startMapName);
+        await _serverService.StartServerAsync(needLobby.ServerId, needLobby.Id, startMap);
+        _ = vetoNotifierStopping.ContinueWith(t =>
+        {
+            _ = _matchPrepareNotifier.StartNotifyAboutTime(new()
+            {
+                AvailableSeconds = availableSecondsToConnect,
+                LobbyId = needLobby.Id,
+                UserIds = userIds
+            });
+        });
+    }
+
+    public async Task<string> PayLobby(long lobbyId, long userId)
+    {
+        var lobby = await _lobbySrc.GetLobbyByIdAsync(lobbyId) ?? 
+            throw new LobbySmoothlyError(AppDictionary.JoinLobbyNotFound);
+        
+        if (lobby.PayedUserIds.Contains(userId))
+            throw new LobbySmoothlyError("Матч уже оплачен");
+        
+        var deal = await _paymentSrc.CreateDealAsync(userId, lobbyId);
+
+        var payRequest = new PayRequestDto()
+        {
+            Amount = lobby.LobbyBid,
+            UserId = userId,
+            LobbyId = lobbyId,
+            Deal = deal
+        };
+        var confirmationUrl = await _paymentSrc.CreatePaymentAsync(payRequest);
+
+        var dealInfo = new DealInfo()
+        {
+            DealId = deal.Id,
+            UserId = userId,
+            Amount = lobby.LobbyBid
+        };
+        lobby.Deals.Add(dealInfo);
+        await _lobbySrc.SaveChangesAsync();
+
+        return confirmationUrl;
+    }
+
+    public async Task SuccessLobbyPayment(long lobbyId, long userId)
+    {
+        var lobby = await _lobbySrc.GetLobbyByIdAsync(lobbyId) ??
+            throw new LobbySmoothlyError(AppDictionary.JoinLobbyNotFound);
+        var userIds = GetUserIdsInLobby(lobby);
+
+        lobby.PayedUserIds.Add(userId);
+        lobby.Deals.First(d => d.UserId == userId).Status = DealInfoStatus.Success;
+        await _lobbySrc.SaveChangesAsync();
+
+        await _hubCtx.Clients.User(userId.ToString()).SendAsync("SuccessPayment");
+
+        if (lobby.PayedUserIds.Count == userIds.Count)
+        {
+            _logger.LogInformation("Все пользователи оплатили. Начинаю игру");
+            await StartLobbyAsync(lobby, userIds);
+            await _hubCtx.Clients.Users(lobby.Teams.SelectMany(t => t.Users).Select(u => u.Id.ToString())).SendAsync("AllUsersPayed");
+        }
+    }
+
+    public async Task CancelLobbyPayment(long lobbyId, long userId)
+    {
+        var lobby = await _lobbySrc.GetLobbyByIdAsync(lobbyId) ??
+            throw new LobbySmoothlyError(AppDictionary.JoinLobbyNotFound);
+        
+        lobby.Deals.First(d => d.UserId == userId).Status = DealInfoStatus.Failed;
+        await _lobbySrc.SaveChangesAsync();
+    }
+
+    private async Task CreateLobbyPayouts(long lobbyId)
+    {
+        var lobby = await _lobbySrc.GetLobbyByIdAsync(lobbyId);
+        var teamWinnerIds = lobby.Teams.First(t => t.Id == lobby.TeamWinner).Users.Select(u => u.Id).ToList();
+        var teamLoserIds = lobby.Teams.First(t => t.Id != lobby.TeamWinner).Users.Select(u => u.Id).ToList();
+
+        for (int i = 0; i < teamWinnerIds.Count; i++)
+        {
+            var winnerDeal = lobby.Deals.First(d => d.UserId == teamWinnerIds[i]);
+            var loserDeal = lobby.Deals.First(d => d.UserId == teamLoserIds[i]);
+            var siteComission = loserDeal.Amount * AppConfig.AmountOfComission * 2;
+            var ymoneyComission = loserDeal.Amount * AppConfig.YMoneyComission + loserDeal.Amount * AppConfig.YMoneyComission * AppConfig.NDS;
+            var fullComission = siteComission + ymoneyComission;
+
+            var payout = new UserPayout()
+            {
+                FirstDealId = winnerDeal.DealId,
+                SecondDealId = loserDeal.DealId,
+                UserId = teamWinnerIds[i],
+                Amount = winnerDeal.Amount + loserDeal.Amount - fullComission,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _paySrc.CreatePayoutAsync(payout);
+        }
+
+        await _paySrc.SaveChangesAsync();
+    }
+
     public async Task<ActionInfo> DoAction(MapPickRequest req)
     {
         Lobby? needLobby = null;
@@ -538,28 +658,9 @@ public class LobbyService : ILobbyService
                 needLobby.Version = Guid.NewGuid();
                 if (isCompleted)
                 {
-                    var userIds = GetUserIdsInLobby(needLobby);
-                    var vetoNotifierStopping = _vetoNotifier.StopNotifyingAboutTime(needLobby.Id);
-                    needLobby.Status = LobbyStatus.Warmup;
-                    needLobby.EdgeConnectTimeOnFirstMap = DateTime.UtcNow + needLobby.WaitToStartTime;
-                    needLobby.LastServerUpdate = DateTime.UtcNow;
-                    InitializeMapMatchesInLobby(needLobby);
-                    await _lobbySrc.SaveChangesAsync();
-                    var startMapName = GameServerResolvers.ConvertMapToString(needLobby.Matches.First().PlayedMap);
-                    var startMap = _serverRep.ConvertMapsToWorkshopLinks(startMapName);
-                    await _serverService.StartServerAsync(needLobby.ServerId, needLobby.Id, startMap);
-                    _ = vetoNotifierStopping.ContinueWith(t =>
-                    {
-                        _ = _matchPrepareNotifier.StartNotifyAboutTime(new()
-                        {
-                            AvailableSeconds = availableSecondsToConnect,
-                            LobbyId = needLobby.Id,
-                            UserIds = userIds
-                        });
-                    });
+                    needLobby.Status = LobbyStatus.WaitingForPay;
                 }
-                else
-                    await _lobbySrc.SaveChangesAsync();
+                await _lobbySrc.SaveChangesAsync();
                 transaction.Complete();
             }
             catch
@@ -934,6 +1035,9 @@ public class LobbyService : ILobbyService
             SetupLobbyOnEnd(lobby, 0);
             await _lobbySrc.SaveChangesAsync();
             await _serverService.StopServerAsync(lobby.ServerId, lobby.Id);
+
+            await CreateLobbyPayouts(lobby.Id);
+
             transaction.Complete();
         }
         else

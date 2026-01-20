@@ -50,22 +50,22 @@ public class UserController : ControllerBase
             id = UserId;
         return Ok(await _userProvider.GetUserAsync(new() { UserId = (long)id, IncludeFriends = (bool)includeFriends!}));
     }
-    [Authorize]
-    [HttpPost("pay")]
-    public async Task<IActionResult> UserPayingBalance([FromBody] PayRequestDto req)
-    {
-        req.UserId = UserId.ToString();
-        var confirmation = await _payment.CreatePaymentAsync(req);
-        return Ok(confirmation);
-    }
-    [Authorize]
-    [HttpPost("payout")]
-    public async Task<IActionResult> UserRequestPayout([FromBody] PayoutRequest req)
-    {
-        await _payment.CreatePayoutAsync(req, UserId.ToString());
-        return Ok("Средства поступят в ближайшее время, информацию \n" +
-            "о транзакциях можете увидеть в разделе 'Баланс'");
-    }
+    // [Authorize]
+    // [HttpPost("pay")]
+    // public async Task<IActionResult> UserPayingBalance([FromBody] PayRequestDto req)
+    // {
+    //     req.UserId = UserId.ToString();
+    //     var confirmation = await _payment.CreatePaymentAsync(req);
+    //     return Ok(confirmation);
+    // }
+    // [Authorize]
+    // [HttpPost("payout")]
+    // public async Task<IActionResult> UserRequestPayout([FromBody] PayoutRequest req)
+    // {
+    //     await _payment.CreatePayoutAsync(req, UserId.ToString());
+    //     return Ok("Средства поступят в ближайшее время, информацию \n" +
+    //         "о транзакциях можете увидеть в разделе 'Баланс'");
+    // }
     [HttpPost("pay-handler")]
     public async  Task<IActionResult> HandlePay()
     {

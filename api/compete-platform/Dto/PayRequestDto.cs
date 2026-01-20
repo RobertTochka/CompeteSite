@@ -1,10 +1,12 @@
-﻿namespace compete_platform.Dto
+﻿using Yandex.Checkout.V3;
+
+namespace compete_platform.Dto
 {
     public class PayRequestDto
     {
         public decimal Amount { get; set; }
-        public string? UserId { get; set; }
-        public string Variant { get; set; } = null!;
-        public string Identifier { get; set; } = null!;
+        public long UserId { get; set; }
+        public long LobbyId { get; set; }
+        public Deal Deal { get; set; } = null!;
     }
 }

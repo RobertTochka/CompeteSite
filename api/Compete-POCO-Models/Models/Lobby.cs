@@ -2,7 +2,6 @@
 using Compete_POCO_Models.Models;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Globalization;
 
 namespace compete_poco.Models
 {
@@ -16,7 +15,7 @@ namespace compete_poco.Models
     }
     public enum LobbyStatus
     {
-        Configuring, Veto, Playing, Canceled, Over, Warmup
+        Configuring, Veto, WaitingForPay, Playing, Canceled, Over, Warmup
     }
     public class Lobby : IContainsValuableEvents
     {
@@ -28,6 +27,8 @@ namespace compete_poco.Models
             PickMaps = new List<Map>();
             Awards = new List<UserAward>();
             MapActions = new List<MapActionInfo>();
+            PayedUserIds = new List<long>();
+            Deals = new List<DealInfo>();
         }
         public long Id { get; set; }
         public ICollection<Match> Matches { get; set; }
@@ -59,6 +60,8 @@ namespace compete_poco.Models
         public TimeSpan WaitToStartTime { get; set; }
         public int FirstTeamMapScore { get; set; } = 0;
         public int SecondTeamMapScore { get; set; } = 0;
+        public List<long> PayedUserIds { get; set; }
+        public List<DealInfo> Deals { get; set; }
         [ConcurrencyCheck]
         public Guid Version { get; set; }
 

@@ -4,13 +4,13 @@
     {
         public Task<string> PayRequestedEvent(long userId, decimal amount);
         public Task PaySuccessEvent(long userId, decimal amount, 
-            string paymentId, string correlationId);
+            string paymentId,string dealId, string correlationId);
         public Task PayFailedEvent(long userId, decimal amount, 
-            string paymentId, string error, string correlationId);
+            string paymentId, string dealId, string error, string correlationId);
         public Task<string> PayoutRequestedEvent(long userId, decimal amount);
         public Task PayoutSuccessEvent(long userId, decimal amount, 
-            string payoutId, string correlationId);
+            string payoutId, string dealId, string correlationId);
         public Task PayoutFailedEvent(long userId, decimal amount, string payoutId, 
-            string error, string correlationId);
+            string dealId, string error, string correlationId);
     }
 }

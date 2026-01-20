@@ -15,6 +15,7 @@ namespace Compete_POCO_Models.Infrastrcuture.Data
         public DbSet<PayEvent> PayEvents { get; set; } = null!;
         public DbSet<UserBid> Bids { get; set; } = null!;
         public DbSet<Pay> Pays { get; set; } = null!;
+        public DbSet<UserPayout> UserPayouts { get; set; } = null!;
         public DbSet<Report> Reports { get; set; } = null!;
         public DbSet<UserAward> Awards { get; set; } = null!;
         public DbSet<ChatMessage> ChatMessages { get; set; } = null!;

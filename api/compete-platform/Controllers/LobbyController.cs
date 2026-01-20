@@ -88,6 +88,13 @@ namespace compete_poco.Controllers
             }
             return Ok();
         }
+        [HttpPost("{lobbyId:long}/pay")]
+        public async Task<IActionResult> PayLobby(long lobbyId)
+        {
+            var userId = GetUserId();
+            var confirmationUrl = await _lobbyProvider.PayLobby(lobbyId, userId);
+            return Ok(confirmationUrl);
+        }
 
         private async Task NotifyUserAboutLobbyChanges(string notifyMessage, long userId, ActionInfo info)
         {

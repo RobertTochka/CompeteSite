@@ -13,6 +13,7 @@ namespace compete_poco.Dto
             Teams = new List<GetTeamDto>();
             MapActions = new();
             Matches = new();
+            PayedUserIds = new List<long>();
         }
         public long Id { get; set; }
         public long CreatorId { get; set; }
@@ -36,6 +37,7 @@ namespace compete_poco.Dto
         public int? Port { get; set; }
         public int FirstTeamMapScore { get; set; } = 0;
         public int SecondTeamMapScore { get; set; } = 0;
+        public List<long> PayedUserIds { get; set; }
 
         public object Clone()
         {

@@ -134,7 +134,7 @@ export const Api = createApi({
       transformResponse: (res: GetLobbyViewDto[]) => {
         return lobbiesWithPasswordAdapter.addMany(
           lobbiesWithPasswordAdapter.getInitialState(),
-          res
+          res,
         );
       },
       forceRefetch: ({ currentArg, previousArg }) =>
@@ -149,7 +149,7 @@ export const Api = createApi({
       merge: (currentState, incomingState) => {
         lobbiesWithPasswordAdapter.setMany(
           currentState,
-          lobbiesWithPasswordAdapter.getSelectors().selectAll(incomingState)
+          lobbiesWithPasswordAdapter.getSelectors().selectAll(incomingState),
         );
       },
     }),
@@ -173,7 +173,7 @@ export const Api = createApi({
       transformResponse: (res: GetUserView[]) => {
         return usersForAdminAdapter.addMany(
           usersForAdminAdapter.getInitialState(),
-          res
+          res,
         );
       },
       keepUnusedDataFor: 1,
@@ -195,7 +195,7 @@ export const Api = createApi({
       merge: (currentState, incomingState) => {
         usersForAdminAdapter.addMany(
           currentState,
-          usersForAdminAdapter.getSelectors().selectAll(incomingState)
+          usersForAdminAdapter.getSelectors().selectAll(incomingState),
         );
       },
     }),
@@ -233,6 +233,12 @@ export const Api = createApi({
       }),
       invalidatesTags: ["lobbies"],
     }),
+    payLobby: builder.mutation<string, { lobbyId: number }>({
+      query: ({ lobbyId }) => ({
+        url: `lobby/${lobbyId}/pay`,
+        method: "POST",
+      }),
+    }),
     getServerPing: builder.query<GetServerPingDto, { ip: string }>({
       query: ({ ip }) => `lobby/ping?ip=${ip}`,
     }),
@@ -245,7 +251,7 @@ export const Api = createApi({
       serializeQueryArgs: ({ queryArgs }) => `lobbyConfig${queryArgs.id}`,
       onCacheEntryAdded: async (
         arg,
-        { updateCachedData, cacheDataLoaded, cacheEntryRemoved }
+        { updateCachedData, cacheDataLoaded, cacheEntryRemoved },
       ) => {
         try {
           await cacheDataLoaded;
@@ -282,7 +288,7 @@ export const Api = createApi({
       merge: (currentState, incomingState) => {
         paysAdapter.addMany(
           currentState,
-          paysAdapter.getSelectors().selectAll(incomingState)
+          paysAdapter.getSelectors().selectAll(incomingState),
         );
       },
     }),
@@ -312,7 +318,7 @@ export const Api = createApi({
       merge: (currentState, incomingState) => {
         ratingAdapter.addMany(
           currentState,
-          ratingAdapter.getSelectors().selectAll(incomingState)
+          ratingAdapter.getSelectors().selectAll(incomingState),
         );
       },
     }),
@@ -347,7 +353,7 @@ export const Api = createApi({
       transformResponse: (res: GetAppealChatDto[]) => {
         return appealChatsAdapter.addMany(
           appealChatsAdapter.getInitialState(),
-          res
+          res,
         );
       },
       keepUnusedDataFor: 1,
@@ -363,7 +369,7 @@ export const Api = createApi({
       merge: (currentState, incomingState) => {
         appealChatsAdapter.addMany(
           currentState,
-          appealChatsAdapter.getSelectors().selectAll(incomingState)
+          appealChatsAdapter.getSelectors().selectAll(incomingState),
         );
       },
       providesTags: ["chat"],
@@ -389,7 +395,7 @@ export const Api = createApi({
       },
       onCacheEntryAdded: async (
         arg,
-        { updateCachedData, cacheEntryRemoved, cacheDataLoaded }
+        { updateCachedData, cacheEntryRemoved, cacheDataLoaded },
       ) => {
         try {
           await cacheDataLoaded;
@@ -432,7 +438,7 @@ export const Api = createApi({
       },
       onCacheEntryAdded: async (
         arg,
-        { updateCachedData, cacheEntryRemoved, cacheDataLoaded }
+        { updateCachedData, cacheEntryRemoved, cacheDataLoaded },
       ) => {
         try {
           await cacheDataLoaded;
@@ -483,7 +489,7 @@ export const Api = createApi({
       merge: (currentState, incomingState) => {
         matchesAdapter.addMany(
           currentState,
-          matchesAdapter.getSelectors().selectAll(incomingState)
+          matchesAdapter.getSelectors().selectAll(incomingState),
         );
       },
     }),
@@ -523,7 +529,7 @@ export const Api = createApi({
       transformResponse: (res: GetPayEvent[]) => {
         return payEventsAdapter.addMany(
           payEventsAdapter.getInitialState(),
-          res
+          res,
         );
       },
       keepUnusedDataFor: 1,
@@ -545,7 +551,7 @@ export const Api = createApi({
       merge: (currentState, incomingState) => {
         payEventsAdapter.addMany(
           currentState,
-          payEventsAdapter.getSelectors().selectAll(incomingState)
+          payEventsAdapter.getSelectors().selectAll(incomingState),
         );
       },
     }),
@@ -558,7 +564,7 @@ export const Api = createApi({
       transformResponse: (res: PlatformEvent[]) => {
         return platformEventsAdapter.addMany(
           platformEventsAdapter.getInitialState(),
-          distinctBy(res, (e) => e.payload)
+          distinctBy(res, (e) => e.payload),
         );
       },
       keepUnusedDataFor: 1,
@@ -580,7 +586,7 @@ export const Api = createApi({
       merge: (currentState, incomingState) => {
         platformEventsAdapter.addMany(
           currentState,
-          platformEventsAdapter.getSelectors().selectAll(incomingState)
+          platformEventsAdapter.getSelectors().selectAll(incomingState),
         );
       },
     }),
@@ -651,7 +657,7 @@ export const Api = createApi({
       merge: (currentState, incomingState) => {
         reportsAdapter.addMany(
           currentState,
-          reportsAdapter.getSelectors().selectAll(incomingState)
+          reportsAdapter.getSelectors().selectAll(incomingState),
         );
       },
     }),
@@ -683,7 +689,7 @@ export const Api = createApi({
       merge: (currentState, incomingState) => {
         reportsAdapter.addMany(
           currentState,
-          reportsAdapter.getSelectors().selectAll(incomingState)
+          reportsAdapter.getSelectors().selectAll(incomingState),
         );
       },
     }),
@@ -693,7 +699,7 @@ export const Api = createApi({
           url: `admin/reports/${req.id}?reportResponse=${req.reportResponse}`,
           method: "PUT",
         }),
-      }
+      },
     ),
     getMatchInfo: builder.query<MatchInformationDto, { lobbyId: number }>({
       query: (req) => `lobby/match-info/${req.lobbyId}`,
@@ -725,6 +731,7 @@ export const {
   useGetSupportCoverQuery,
   useGetUserProfileQuery,
   useLeaveFromLobbyMutation,
+  usePayLobbyMutation,
   useGetServerPingQuery,
   useGetLobbyQuery,
   useGetUserStatusQuery,

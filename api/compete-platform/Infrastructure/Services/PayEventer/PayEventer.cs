@@ -20,12 +20,13 @@ namespace compete_platform.Infrastructure.Services.PayEventer
             await _eventsSrc.SaveChangesAsync();
         }
         public async Task PayFailedEvent(
-            long userId, decimal amount, string paymentId, string error, string correlationId)
+            long userId, decimal amount, string paymentId, string dealId, string error, string correlationId)
         {
             var failedPayEvent = new PayEvent()
             {
                 Amount = amount,
                 PaymentId = paymentId,
+                DealId = dealId,
                 Error = error,
                 UserId = userId,
                 CreatedUtc = DateTime.UtcNow,
@@ -36,12 +37,13 @@ namespace compete_platform.Infrastructure.Services.PayEventer
         }
 
         public async Task PayoutFailedEvent(
-            long userId, decimal amount, string payoutId, string error, string correlationId)
+            long userId, decimal amount, string payoutId, string dealId, string error, string correlationId)
         {
             var payoutFailedEvent = new PayEvent()
             {
                 Amount = amount,
                 PaymentId = payoutId,
+                DealId = dealId,
                 Error = error,
                 CreatedUtc = DateTime.UtcNow,
                 UserId = userId,
@@ -67,7 +69,7 @@ namespace compete_platform.Infrastructure.Services.PayEventer
         }
         
         public async Task PayoutSuccessEvent(
-            long userId, decimal amount, string payoutId, string correlationId)
+            long userId, decimal amount, string payoutId, string dealId, string correlationId)
         {
             var payOutSuccessEvent = new PayEvent()
             {
@@ -75,6 +77,7 @@ namespace compete_platform.Infrastructure.Services.PayEventer
                 UserId = userId,
                 CreatedUtc = DateTime.UtcNow,
                 PaymentId = payoutId,
+                DealId = dealId,
                 PayState = PayState.RequestPayoutSuccess,
                 CorrelationId = correlationId
             };
@@ -91,7 +94,7 @@ namespace compete_platform.Infrastructure.Services.PayEventer
         public async Task<string> PayRequestedEvent(long userId, decimal amount)
         {
             var correlationId = Guid.NewGuid().ToString();
-            var payRequestEvnrt = new PayEvent()
+            var payRequestEvert = new PayEvent()
             {
                 Amount = amount,
                 CreatedUtc = DateTime.UtcNow,
@@ -99,12 +102,12 @@ namespace compete_platform.Infrastructure.Services.PayEventer
                 PayState = PayState.RequestTopUp,
                 CorrelationId = correlationId
             };
-            await SavePayEvent(payRequestEvnrt);
+            await SavePayEvent(payRequestEvert);
             return correlationId;
         }
 
         public async Task PaySuccessEvent(
-            long userId, decimal amount, string paymentId, string correlationId)
+            long userId, decimal amount, string paymentId, string dealId, string correlationId)
         {
             var paymentSuccessEvent = new PayEvent()
             {
@@ -113,6 +116,7 @@ namespace compete_platform.Infrastructure.Services.PayEventer
                 Amount = amount,
                 PayState = PayState.TopUpSuccess,
                 PaymentId = paymentId,
+                DealId = dealId,
                 CorrelationId=correlationId
             };
             await _userPays.CreatePayAsync(new()

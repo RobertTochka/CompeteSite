@@ -16,6 +16,7 @@ public class User : IContainsValuableEvents
         Teams = new List<Team>();
         OwnedLobbies = new List<Lobby>();
         Pays = new List<Pay>();
+        Payouts = new List<Payout>();
         Reports = new List<Report>();
     }
     [NotMapped]
@@ -35,6 +36,7 @@ public class User : IContainsValuableEvents
     public ICollection<UserStat> Stats { get;set; }
     public ICollection<Team> Teams { get; set; }
     public ICollection<Pay> Pays { get; set; }
+    public ICollection<Payout> Payouts { get; set; }
     public ICollection<Report> Reports { get; set; }
     public bool IsOnline { get; set; }
     public bool IsAdmin { get;set; }

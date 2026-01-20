@@ -174,8 +174,7 @@ export interface GetReportDto {
   response: string;
   createdAt: string;
 }
-export interface GetMatchesForAdminRequest
-  extends GetBatchOfPagedEntitiesRequest {
+export interface GetMatchesForAdminRequest extends GetBatchOfPagedEntitiesRequest {
   findBy: string | null;
 }
 
@@ -200,6 +199,7 @@ export enum LobbyStatus {
   Configuring,
   Veto,
   Playing,
+  WaitingForPay,
   Canceled,
   Over,
   Warmup,
@@ -265,6 +265,7 @@ export interface GetLobbyDto {
   port: number | null;
   firstTeamMapScore: number;
   secondTeamMapScore: number;
+  payedUserIds: number[];
 }
 export enum ConfirmationType {
   Redirect,

@@ -144,11 +144,11 @@ export function formatDateWithTime(dateString) {
 
 export const getMyTeamChatId = (
   lobby: GetLobbyDto | undefined,
-  userId: number | undefined
+  userId: number | undefined,
 ) => {
   if (!lobby || !userId) return 0;
   const team = lobby.teams.filter((t) =>
-    t.users.map((u) => u.id).includes(userId)
+    t.users.map((u) => u.id).includes(userId),
   );
   if (team.length > 0) return team[0].chatId;
   return 0;
@@ -201,11 +201,11 @@ export function downloadBlob(blob: Blob, filename: string) {
 
 export const getMyTeamId = (
   lobby: GetLobbyDto | undefined,
-  userId: number | undefined
+  userId: number | undefined,
 ) => {
   if (!lobby || !userId) return 0;
   const team = lobby.teams.filter((t) =>
-    t.users.map((u) => u.id).includes(userId)
+    t.users.map((u) => u.id).includes(userId),
   );
   if (team.length > 0) return team[0].id;
   return 0;
@@ -271,7 +271,7 @@ export const getUserAwards = (lobby: GetLobbyDto | undefined) => {
 };
 export const getTeamBalance = (
   lobby: GetLobbyDto | undefined,
-  team: number
+  team: number,
 ) => {
   if (lobby === undefined) return 0;
   if (team !== 0 && lobby.teams.length === 1) return 0;
@@ -300,7 +300,7 @@ export const getTeamScore = (lobby: GetLobbyDto, teamId: number): string => {
 
 export const aggregateMapsWithScore = (
   lobby: GetLobbyDto,
-  teamId: number
+  teamId: number,
 ): IPrepareMapViewProps[] => {
   let pickedMaps = lobby.mapActions.filter((c) => c.isPicked);
 
@@ -347,12 +347,12 @@ export async function start() {
 }
 
 export const configureConnectionForLobbyEvents = (
-  onNewConfig: (lobby: ActionInfo) => void
+  onNewConfig: (lobby: ActionInfo) => void,
 ) => {
   intervalTrying(() =>
     connection!.on("LobbyChanged", (lobby: ActionInfo) => {
       onNewConfig(lobby);
-    })
+    }),
   );
 };
 
@@ -368,18 +368,18 @@ const intervalTrying = (func: () => void) => {
 };
 
 export const configureConnectionForMessages = (
-  onNewMessage: (msg: GetChatMessageDto) => void
+  onNewMessage: (msg: GetChatMessageDto) => void,
 ) => {
   intervalTrying(() =>
     connection.on("GetChatMessage", (msg) => {
       onNewMessage(msg);
-    })
+    }),
   );
 };
 
 export const getMyBid = (
   lobby: GetLobbyDto | undefined,
-  userId: number | undefined
+  userId: number | undefined,
 ) => {
   if (lobby === undefined || userId === undefined) return 0;
   const bidStatus = lobby.bids.find((b) => b.userId === userId);
@@ -388,7 +388,7 @@ export const getMyBid = (
 };
 export const getMyAward = (
   lobby: GetLobbyDto | undefined,
-  userId: number | undefined
+  userId: number | undefined,
 ) => {
   if (lobby === undefined || userId === undefined) return 0;
   return lobby.awards.find((b) => b.userId === userId)?.award ?? 0;
@@ -405,20 +405,20 @@ export function formatNumber(num: number, useComma: boolean = true): string {
 }
 
 export const configureConnectionForNotifications = (
-  onNote: (note: Notification) => void
+  onNote: (note: Notification) => void,
 ) => {
   intervalTrying(() =>
     connection!.on("GetMessage", (note: Notification) => {
       onNote(note);
-    })
+    }),
   );
 };
 
 export const configureConnectionForPickMapSecondsNotifications = (
-  onNote: (seconds: number) => void
+  onNote: (seconds: number) => void,
 ) => {
   intervalTrying(() =>
-    connection!.on("NotifyAboutAvailablePickMapSeconds", onNote)
+    connection!.on("NotifyAboutAvailablePickMapSeconds", onNote),
   );
 };
 
@@ -433,12 +433,12 @@ export const disposeConnectionForPickMapSecondsNotifications = () =>
   connection?.off("NotifyAboutAvailablePickMapSeconds");
 
 export const configureConnectionForInvites = (
-  onInvite: (info: JoinToLobbyInfo) => void
+  onInvite: (info: JoinToLobbyInfo) => void,
 ) => {
   intervalTrying(() =>
     connection!.on("GetInvite", (info) => {
       onInvite(info);
-    })
+    }),
   );
 };
 
@@ -448,7 +448,7 @@ export const handleMutationError = (e: any) => {
 };
 
 export const handleError = (
-  error: FetchBaseQueryError | SerializedError | undefined
+  error: FetchBaseQueryError | SerializedError | undefined,
 ) => {
   const defaultMessage = "Произошла ошибка при выполнении операции";
   if (error === undefined) return undefined;
@@ -527,7 +527,7 @@ export const useGetMenuLinks = (linksTemplate: IMenuLink[]) => {
   const { data: status, isFetching, refetch } = useGetUserStatusQuery({ id });
   const handleLinks = (
     template: IMenuLink[],
-    usrStatus: UserStatus | undefined
+    usrStatus: UserStatus | undefined,
   ) => {
     if (template.find((item) => item.link.includes("create-lobby")))
       return template;

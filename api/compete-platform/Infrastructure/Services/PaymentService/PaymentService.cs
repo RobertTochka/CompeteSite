@@ -1,4 +1,5 @@
 ﻿using compete_platform.Dto;
+using compete_platform.Infrastructure.Services.LobbyService;
 using compete_platform.Infrastructure.Services.PayEventer;
 using compete_platform.Infrastructure.Services.PayRepository;
 using compete_poco.Infrastructure.Data;
@@ -13,6 +14,7 @@ namespace compete_platform.Infrastructure.Services.PaymentService
         private readonly ILogger<PaymentService> _logger;
         private readonly IPayEventer _eventer;
         private readonly CPayRepository _paySrc;
+        private readonly ILobbyService _lobbyService;
         private readonly AppConfig _cfg;
         private readonly IUserService _userProvider;
         public static string Correlation => nameof(Correlation);
@@ -22,76 +24,132 @@ namespace compete_platform.Infrastructure.Services.PaymentService
             AppConfig cfg,
             IUserService userProvider,
             CPayRepository paySrc,
+            ILobbyService lobbyService,
             IPayEventer eventer) 
         {
             _logger = logger;
             _eventer = eventer;
             _paySrc = paySrc;
+            _lobbyService = lobbyService;
             _cfg = cfg;
             _userProvider = userProvider;
         }
-        private PaymentMethod GetPaymentMethodData(PayRequestDto payRequest)
+        // private PaymentMethod GetPaymentMethodData(PayRequestDto payRequest)
+        // {
+        //     PaymentMethod result = payRequest.Variant switch
+        //     {
+        //         "bank-card" => new() {Type = PaymentMethodType.BankCard },
+        //         "ymoney" => new() { Type = PaymentMethodType.YooMoney },
+        //         "sberpay" => new() { Type= PaymentMethodType.Sberbank },
+        //         "sbp" => new() { Type = PaymentMethodType.Sbp},
+        //         "balance-phone" => new() { Type = PaymentMethodType.MobileBalance, Phone = payRequest.Identifier},
+        //         _ => throw new InvalidProgramException()
+        //     };
+        //     return result;
+        // }
+        // private Confirmation GetPaymentConfirmation(PayRequestDto payRequest)
+        // {
+        //     Confirmation result = payRequest.Variant switch
+        //     {
+        //         "balance-phone" => new() { Type = ConfirmationType.External },
+        //         _ => new()
+        //         {
+        //             Type = ConfirmationType.Redirect,
+        //             ReturnUrl = $"{_cfg.Host}/" +
+        //         $"profile?fromShop={AppDictionary.ThanksForTopUp}"
+        //         }
+        //     };
+        //     return result;
+        // }
+
+        private PaymentDeal GetDealForPayment(Deal deal)
         {
-            PaymentMethod result = payRequest.Variant switch
+            var settlement = new Settlement { Type = SettlementType.Payout, Amount = new Amount { Value = 123, Currency = "RUB" } };
+            var result = new PaymentDeal
             {
-                "bank-card" => new() {Type = PaymentMethodType.BankCard },
-                "ymoney" => new() { Type = PaymentMethodType.YooMoney },
-                "sberpay" => new() { Type= PaymentMethodType.Sberbank },
-                "sbp" => new() { Type = PaymentMethodType.Sbp},
-                "balance-phone" => new() { Type = PaymentMethodType.MobileBalance, Phone = payRequest.Identifier},
-                _ => throw new InvalidProgramException()
+                Id = deal.Id,
+                Settlements = new List<Settlement> { settlement }
             };
             return result;
         }
-        private Confirmation GetPaymentConfirmation(PayRequestDto payRequest)
+
+        public async Task<Deal> CreateDealAsync(long userId, long lobbyId)
         {
-            Confirmation result = payRequest.Variant switch
-            {
-                "balance-phone" => new() { Type = ConfirmationType.External },
-                _ => new()
-                {
-                    Type = ConfirmationType.Redirect,
-                    ReturnUrl = $"{_cfg.Host}/" +
-                $"profile?fromShop={AppDictionary.ThanksForTopUp}"
-                }
-            };
-            return result;
-        }
-        public async Task<PayResponseDto> CreatePaymentAsync(PayRequestDto req)
-        {
-            var userId = req.UserId!;
-            var amount = req.Amount;
-            if (!variants.Contains(req.Variant))
-                throw new ApplicationException(AppDictionary.NotSupportedPayment);
             var _client = new Client(_cfg.ShopId, _cfg.PaymentKey).MakeAsync();
             _logger.LogInformation(
-                $"Пришел запрос на пополнение баланса от пользователя с userId - [{userId}]");
-            var correlationId = await _eventer.PayRequestedEvent(long.Parse(userId), amount);
+                $"Создание сделки для пользователя пользователя [{userId}] в лобби - [{lobbyId}]");
+            var newDeal = new NewDeal
+            {
+                Type = DealType.SafeDeal,
+                FeeMoment = FeeMomentType.DealClosed,
+                Metadata = new() { { Label, userId.ToString() }, {"LobbyId", lobbyId.ToString()} },
+            };
+            Deal deal = await _client.CreateDealAsync(newDeal);
+            _logger.LogInformation($"Пользователь с id - [{userId}] создал сделку в лобби - [{lobbyId}]");
+            return deal;
+        }
+
+        public async Task<string> CreatePaymentAsync(PayRequestDto req)
+        {
+            var userId = req.UserId;
+            var amount = req.Amount;
+            var lobbyId = req.LobbyId;
+            Deal deal = req.Deal;
+            var _client = new Client(_cfg.ShopId, _cfg.PaymentKey).MakeAsync();
+            _logger.LogInformation(
+                $"Создание платежа для пользователя [{userId}]");
+            var correlationId = await _eventer.PayRequestedEvent(userId, amount);
             var newPayment = new NewPayment
             {
-                PaymentMethodData = GetPaymentMethodData(req),
                 Amount = new Amount { Value = amount, Currency = "RUB" },
-                Confirmation = GetPaymentConfirmation(req),
+                Confirmation = new Confirmation {Type = ConfirmationType.Redirect, ReturnUrl = $"{_cfg.Host}/" + $"lobby/{lobbyId}" },
                 Capture = true,
-                Metadata = new() { { Label, userId }, { Correlation, correlationId} },
+                Deal = GetDealForPayment(deal),
+                Metadata = new() { { Label, userId.ToString() }, { "LobbyId", lobbyId.ToString() }, { Correlation, correlationId} },
             };
             Payment payment = await _client.CreatePaymentAsync(newPayment);
-            _logger.LogInformation($"Пользователь с id - [{userId}] был отправлен на страницу подтверждения");
-            return new() 
-            { 
-                Confirmation =  payment.Confirmation,
-                Text = payment.Confirmation.Type == ConfirmationType.External 
-                ?  AppDictionary.ConfirmOnPhone : null
-            };
+            _logger.LogInformation($"Платеж для пользователя [{userId}] создан");
+            return payment.Confirmation.ConfirmationUrl;
         }
+
+        // public async Task<PayResponseDto> CreatePaymentAsync(PayRequestDto req)
+        // {
+        //     var userId = req.UserId!;
+        //     var amount = req.Amount;
+        //     if (!variants.Contains(req.Variant))
+        //         throw new ApplicationException(AppDictionary.NotSupportedPayment);
+        //     var _client = new Client(_cfg.ShopId, _cfg.PaymentKey).MakeAsync();
+        //     _logger.LogInformation(
+        //         $"Пришел запрос на пополнение баланса от пользователя с userId - [{userId}]");
+        //     var correlationId = await _eventer.PayRequestedEvent(long.Parse(userId), amount);
+        //     var newPayment = new NewPayment
+        //     {
+        //         PaymentMethodData = GetPaymentMethodData(req),
+        //         Amount = new Amount { Value = amount, Currency = "RUB" },
+        //         Confirmation = GetPaymentConfirmation(req),
+        //         Capture = true,
+        //         Metadata = new() { { Label, userId }, { Correlation, correlationId} },
+        //     };
+        //     Payment payment = await _client.CreatePaymentAsync(newPayment);
+        //     _logger.LogInformation($"Пользователь с id - [{userId}] был отправлен на страницу подтверждения");
+        //     return new() 
+        //     { 
+        //         Confirmation =  payment.Confirmation,
+        //         Text = payment.Confirmation.Type == ConfirmationType.External 
+        //         ?  AppDictionary.ConfirmOnPhone : null
+        //     };
+        // }
         public async Task HandleSuccessPayment(Payment payment)
         {
             try
             {
                 var userId = long.Parse(payment.Metadata[Label]);
-                var correlationId = payment.Metadata[Correlation];
-                await _userProvider.TopUpUserBalance(
-                    payment.Amount.Value, userId, payment.Id, correlationId);
+                var lobbyId = long.Parse(payment.Metadata["LobbyId"]);
+                // var correlationId = payment.Metadata[Correlation];
+                // await _userProvider.TopUpUserBalance(
+                //     payment.Amount.Value, userId, payment.Id, correlationId);
+                await _lobbyService.SuccessLobbyPayment(lobbyId, userId);
+                _logger.LogInformation($"Оплата для пользователя {userId} в лобби {lobbyId} подтверждена");
             }
             catch (Exception ex)
             {
@@ -99,7 +157,7 @@ namespace compete_platform.Infrastructure.Services.PaymentService
                     $"{ex.Message}");
             }
         }
-        private async Task HandlePaymentCapture(Payment payment)
+        public async Task HandlePaymentCapture(Payment payment)
         {
             var userId = long.Parse(payment.Metadata[Label]);
 
@@ -127,7 +185,7 @@ namespace compete_platform.Infrastructure.Services.PaymentService
                 var userId = long.Parse(payout.Metadata[Label]);
                 var correlationId = payout.Metadata[Correlation];
                 _logger.LogInformation($"User: {userId}");
-                await _eventer.PayoutSuccessEvent(userId, payout.Amount.Value, payout.Id, correlationId);
+                await _eventer.PayoutSuccessEvent(userId, payout.Amount.Value, payout.Id, payout.Deal.Id, correlationId);
                 _logger.LogInformation("Sucess");
             }
             catch (Exception ex)
@@ -175,9 +233,12 @@ namespace compete_platform.Infrastructure.Services.PaymentService
             try
             {
                 var userId = long.Parse(@object.Metadata[Label]);
+                var lobbyId = long.Parse(@object.Metadata["LobbyId"]);
                 var correlationId = @object.Metadata[Correlation];
+
                 await _eventer.PayFailedEvent(userId, @object.Amount.Value, 
-                    @object.Id, @object.CancellationDetails.Reason, correlationId);
+                    @object.Id, @object.Deal.Id, @object.CancellationDetails.Reason, correlationId);
+                await _lobbyService.CancelLobbyPayment(lobbyId, userId);
             }
             catch(Exception ex)
             {

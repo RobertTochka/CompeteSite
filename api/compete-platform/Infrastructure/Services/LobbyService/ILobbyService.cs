@@ -6,7 +6,9 @@ namespace compete_platform.Infrastructure.Services.LobbyService
 {
     public interface ILobbyService
     {
-
+        public Task SuccessLobbyPayment(long lobbyId, long userId);
+        public Task CancelLobbyPayment(long lobbyId, long userId);
+        public Task<string> PayLobby(long lobbyId, long userId);
         public Task<ActionInfo> JoinToLobby(JoinToLobbyInfo info);
         public Task<ActionInfo?> LeaveFromLobby(long userId, long lobbyId);
         public Task<ActionInfo> SetNewLobbyConfiguration(LobbyAdminConfiguration newCfg, long userId);

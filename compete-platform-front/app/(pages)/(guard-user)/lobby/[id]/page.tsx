@@ -14,6 +14,7 @@ import { handleError } from "@/app/_utils/functions";
 import { useParams, useRouter } from "next/navigation";
 import { MatchPrepare } from "@/app/_components/MatchPrepare/MatchPrepare";
 import { MatchEndPage } from "@/app/_components/MatchEndPage/MatchEndPage";
+import { WaitForPayPage } from "@/app/_components/WaitForPayPage/WaitForPayPage";
 
 export default function Lobby() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export default function Lobby() {
   } = useGetLobbyQuery({ id: lobbyId }, { pollingInterval: 5000 });
   const userReq: GetUserRequest = useMemo(
     () => ({ userId: undefined, includeFriends: false }),
-    []
+    [],
   );
 
   const { data: user, isLoading: userLoading } =
@@ -41,6 +42,7 @@ export default function Lobby() {
       router.push(`/create-lobby/${id}`);
   }, [actionInfo]);
   const getActionInfoError = handleError(error);
+
   if ((isLoading && !actionInfo) || (userLoading && !user) || !lobby || !user)
     return (
       <Information
@@ -49,11 +51,13 @@ export default function Lobby() {
         errorMessage={getActionInfoError}
       />
     );
+
   if (
     lobby.status === LobbyStatus.Playing ||
     lobby.status === LobbyStatus.Warmup
   )
     return <MatchPrepare {...lobby} userId={user.id} />;
+
   if (
     lobby.status === LobbyStatus.Canceled ||
     lobby.status === LobbyStatus.Over
@@ -64,5 +68,9 @@ export default function Lobby() {
         userId={user?.id ?? 0}
       ></MatchEndPage>
     );
+
+  if (lobby.status === LobbyStatus.WaitingForPay)
+    return <WaitForPayPage userId={user?.id ?? 0} {...actionInfo.newLobby} />;
+
   return <Veto {...actionInfo} userId={user?.id ?? 0}></Veto>;
 }

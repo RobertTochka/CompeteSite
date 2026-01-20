@@ -13,7 +13,9 @@ namespace compete_poco.Infrastructure.Data
         public static string RelativeFilePath => "/api/files";
         public string Redis { get; set; } = string.Empty;   
         public string JwtKey { get; set; } = string.Empty;
-        public static decimal AmountOfComission { get; set; } = 0.1M;
+        public static decimal AmountOfComission { get; set; } = 0.12M;
+        public static decimal YMoneyComission { get; set; } = 0.04M;
+        public static decimal NDS { get; set; } = 0.22M;
         public string Issuer { get; set; } = string.Empty;
         public SymmetricSecurityKey JwtKeyObject => new SymmetricSecurityKey(Encoding.UTF8.GetBytes(JwtKey));
         public TimeSpan CredentialsAvailabilityTime => TimeSpan.FromDays(7);

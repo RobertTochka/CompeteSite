@@ -10,6 +10,7 @@ namespace Compete_POCO_Models.Models
     {
         public long Id { get; set; }
         public string? PaymentId { get; set; }
+        public string? DealId { get; set; }
         public long UserId { get;set; }
         public User? User { get; set; }
         public PayState PayState { get;set; }
